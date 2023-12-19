@@ -1,0 +1,9 @@
+{% extends "base.html" -%}
+{% block header -%}
+{% include "partials/menu.html" %}
+{%- endblock header %}
+{% block content -%}
+<div>
+    {{ table_1|safe }}
+</div>
+{%- endblock content %}
