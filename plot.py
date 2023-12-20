@@ -4,6 +4,8 @@ import plotly.graph_objs as go
 config_plot = {"displaylogo": False, 'modeBarButtonsToRemove': ['lasso2d', 'select2d']}
 
 def preprocess_data(df, x_axis, y_axis, group_by=None, aggregation='count'):
+    df = df.copy()
+    
     if isinstance(df, (pd.DatetimeIndex, pd.MultiIndex)):
         df = df.to_frame(index=False)
 
@@ -47,7 +49,6 @@ def bar_chart(df, x_axis, y_axis, group_by, aggregation='count', x_label=None, y
 
     charts = []
     for it in chart_data[group_by].unique():
-        print(it)
         chart_data_tmp = chart_data.query(f"`{group_by}` == '{it}'")
         charts.append(go.Bar(
             x=chart_data_tmp['x'],
@@ -67,7 +68,7 @@ def bar_chart(df, x_axis, y_axis, group_by, aggregation='count', x_label=None, y
         return figure.to_html(full_html=False, config=config_plot)
     return figure
 
-def pie_chart(df, x_axis, y_axis, aggregation='count', x_label=None, y_label=None, title=None, to_html=True):
+def pie_chart(df, x_axis, y_axis, aggregation='count', title=None, to_html=True):
     aggregation_txt = (aggregation if isinstance(aggregation, str) else aggregation.__name__).capitalize()
 
     chart_data = preprocess_data(df, x_axis, y_axis, aggregation=aggregation)
@@ -82,16 +83,25 @@ def pie_chart(df, x_axis, y_axis, aggregation='count', x_label=None, y_label=Non
         return figure.to_html(full_html=False, config=config_plot)
     return figure
 
-def line_chart(df, x_axis, y_axis, aggregation='count', x_label=None, y_label=None, title=None, to_html=True):
+def line_chart(df, x_axis, y_axis, group_by=None, aggregation='count', x_label=None, y_label=None, title=None, to_html=True, x_index=None):
     aggregation_txt = (aggregation if isinstance(aggregation, str) else aggregation.__name__).capitalize()
     
-    chart_data = preprocess_data(df, x_axis, y_axis, aggregation=aggregation)
-
+    chart_data = preprocess_data(df, x_axis, y_axis, group_by, aggregation=aggregation)
     charts = []
     line_cfg = {'line': {'shape': 'spline', 'smoothing': 0.3}, 'mode': 'lines'}
-    charts.append(go.Scatter(
-        x=chart_data['x'], y=chart_data[f'{y_axis}||{aggregation_txt}'], name=f'({y_axis}||{aggregation_txt})', **line_cfg
-    ))
+    if group_by:
+        for it in chart_data[group_by].unique():
+            chart_data_tmp = chart_data.query(f"`{group_by}` == '{it}'")
+            chart_data_tmp = chart_data_tmp.set_index(chart_data_tmp['x']).reindex(x_index, axis=0).dropna()
+            charts.append(go.Scatter(
+                x=chart_data_tmp['x'], y=chart_data_tmp[f'{y_axis}||{aggregation_txt}'], name=f'({y_axis}||{aggregation_txt})', **line_cfg
+            ))
+    else:
+        chart_data = chart_data.set_index(chart_data['x']).reindex(x_index, axis=0).dropna()
+        charts.append(go.Scatter(
+            x=chart_data['x'], y=chart_data[f'{y_axis}||{aggregation_txt}'], name=f'({y_axis}||{aggregation_txt})', **line_cfg
+        ))
+    
     figure = go.Figure(data=charts, layout=go.Layout({
         'legend': {'orientation': 'h', 'y': -0.3},
         'title': {'text': title or f'{aggregation_txt} of {y_axis} by {x_axis}'},
